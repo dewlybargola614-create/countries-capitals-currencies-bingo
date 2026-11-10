@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Group Spin Wheel</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:"Comic Sans MS","Comic Sans",cursive;background:#EAF4FB;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px;color:#1E2A44}
+h1{margin:4px 0 12px;font-size:34px}
+.wrap{position:relative;width:min(70vh,88vw);aspect-ratio:1}
+canvas{width:100%;height:100%;display:block}
+.pin{position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:22px solid transparent;border-right:22px solid transparent;border-top:42px solid #C0392B;filter:drop-shadow(0 2px 2px rgba(0,0,0,.3))}
+.btns{display:flex;gap:14px;margin-top:16px}
+button{font-family:inherit;font-size:24px;font-weight:bold;padding:12px 30px;border-radius:14px;border:3px solid #1E2A44;background:#FFE27A;color:#1E2A44;cursor:pointer}
+button.sec{background:#fff;font-size:18px;padding:10px 20px}
+button:disabled{opacity:.5;cursor:default}
+#pop{position:fixed;inset:0;background:rgba(30,42,68,.55);display:none;align-items:center;justify-content:center}
+#pop .card{background:#FBF3E8;border:4px solid #1E2A44;border-radius:22px;padding:30px 50px;text-align:center;min-width:320px}
+#pop .g{font-size:64px;font-weight:bold;margin:0}
+#pop .n{font-size:30px;margin:10px 0 20px}
+.left{margin-top:10px;font-size:18px}
+</style></head><body>
+<h1>Which group is next?</h1>
+<div class="wrap"><canvas id="c" width="800" height="800"></canvas><div class="pin"></div></div>
+<div class="btns"><button id="spin">Spin!</button><button class="sec" id="reset">Reset</button></div>
+<div class="left" id="left"></div>
+<div id="pop"><div class="card"><p class="g" id="pg"></p><p class="n" id="pn"></p><button id="ok">OK</button></div></div>
+<script>
+const ALL=[
+ {g:1,n:"Chris, Mandy, Rita",c:"#F4B6C2"},
+ {g:2,n:"Ryan, Jenny, May",c:"#A8DADC"},
+ {g:3,n:"Ian, Allen, Jason",c:"#FFD166"},
+ {g:4,n:"Hunter, Tammy, Lisa",c:"#CDB4DB"},
+ {g:5,n:"Yvonne, Terry, Diego",c:"#9BC4F0"},
+ {g:6,n:"Tony, Canny, Denny",c:"#B5E48C"},
+ {g:7,n:"Ethan, Linda, Victor, Matt",c:"#F8B88B"},
+ {g:8,n:"Ashley, Abbie, Wiwi, Jay",c:"#D9D9D9"}];
+let items=ALL.slice(),rot=0,spinning=false,picked=null;
+const cv=document.getElementById("c"),ctx=cv.getContext("2d");
+function draw(){const R=390,cx=400,cy=400,n=items.length;ctx.clearRect(0,0,800,800);
+ if(!n){ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.fill();ctx.fillStyle="#1E2A44";ctx.font="bold 44px Comic Sans MS";ctx.textAlign="center";ctx.fillText("All done!",cx,cy+15);return;}
+ const a=2*Math.PI/n;
+ items.forEach((it,i)=>{const s=rot+i*a-Math.PI/2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,R,s,s+a);ctx.closePath();ctx.fillStyle=it.c;ctx.fill();ctx.lineWidth=4;ctx.strokeStyle="#fff";ctx.stroke();
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(s+a/2);ctx.fillStyle="#1E2A44";ctx.font="bold 46px Comic Sans MS";ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillText("Group "+it.g,R-28,0);ctx.restore();});
+ ctx.beginPath();ctx.arc(cx,cy,46,0,7);ctx.fillStyle="#1E2A44";ctx.fill();
+ document.getElementById("left").textContent=items.length+" group"+(items.length==1?"":"s")+" left";}
+function tick(){try{const A=window.AudioContext||window.webkitAudioContext;tick.a=tick.a||new A();const o=tick.a.createOscillator(),g=tick.a.createGain();o.frequency.value=900;g.gain.value=.05;o.connect(g);g.connect(tick.a.destination);o.start();o.stop(tick.a.currentTime+.03);}catch(e){}}
+document.getElementById("spin").onclick=()=>{if(spinning||!items.length)return;spinning=true;document.getElementById("spin").disabled=true;
+ const n=items.length,a=2*Math.PI/n,target=Math.floor(Math.random()*n);
+ const end=-(target*a+a/2)+2*Math.PI*(6+Math.floor(Math.random()*3))+(Math.random()-.5)*a*.6;
+ const start=rot%(2*Math.PI),dur=4500,t0=performance.now();let last=Math.floor(start/a);
+ (function f(t){const p=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-p,3);rot=start+(end-start)*e;const k=Math.floor(rot/a);if(k!==last){last=k;tick();}draw();
+  if(p<1)requestAnimationFrame(f);else{spinning=false;picked=target;const it=items[target];document.getElementById("pg").textContent="Group "+it.g;document.getElementById("pn").textContent=it.n;document.getElementById("pop").style.display="flex";}})(t0);};
+document.getElementById("ok").onclick=()=>{document.getElementById("pop").style.display="none";if(picked!==null){items.splice(picked,1);picked=null;}rot=0;draw();document.getElementById("spin").disabled=!items.length;};
+document.getElementById("reset").onclick=()=>{if(spinning)return;items=ALL.slice();rot=0;draw();document.getElementById("spin").disabled=false;};
+draw();
+</script></body></html>
