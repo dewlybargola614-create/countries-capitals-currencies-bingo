@@ -83,6 +83,7 @@
   <button data-n="6">6</button>
   <button data-n="9">9</button>
   <button data-n="12">12</button>
+  <button data-n="15">15</button>
   <span class="spacer"></span>
   <button id="nums">Numbers: On</button>
   <button id="clearAll">Clear all</button>
@@ -100,6 +101,7 @@
     <li><b>Copy from Google Images:</b> right-click a picture → <i>Copy image</i>. Click a box here, then press <b>Ctrl + V</b>.</li>
     <li><b>Drag:</b> drag a picture from another tab straight onto a box.</li>
     <li><b>From the computer:</b> double-click an empty box to choose a file.</li>
+    <li><b>Change a picture:</b> click the box with the old picture, then paste (Ctrl + V) or drag the new one onto it. It replaces the old one.</li>
     <li><b>Make one picture big:</b> double-click a box with a picture. Click again to go back.</li>
     <li><b>Remove a picture:</b> point at it and click ✕ (or click the box and press Delete).</li>
     <li><b>Full screen:</b> press ⛶ or <b>F11</b>. The top bar hides; move the mouse to the very top to show it.</li>
@@ -112,8 +114,8 @@
 const grid = document.getElementById('grid');
 const zoom = document.getElementById('zoom');
 const fileInput = document.getElementById('file');
-const LAYOUTS = { 2:[2,1], 4:[2,2], 6:[3,2], 9:[3,3], 12:[4,3] };
-const MAX = 12;
+const LAYOUTS = { 2:[2,1], 4:[2,2], 6:[3,2], 9:[3,3], 12:[4,3], 15:[5,3] };
+const MAX = 15;
 let images = new Array(MAX).fill(null);   // data URLs or web URLs
 let count = 6, selected = 0, showNums = true;
 
@@ -140,7 +142,7 @@ function load() {
       const r = db.transaction('s').objectStore('s').get('state');
       r.onsuccess = () => {
         const s = r.result;
-        if (s) { images = s.images || images; count = s.count || count; showNums = s.showNums !== false; }
+        if (s) { images = (s.images || images).concat(new Array(MAX).fill(null)).slice(0, MAX); count = s.count || count; showNums = s.showNums !== false; }
         res();
       };
       r.onerror = () => res();
