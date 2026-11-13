@@ -84,6 +84,7 @@
   <button data-n="9">9</button>
   <button data-n="12">12</button>
   <button data-n="15">15</button>
+  <button data-n="20">20</button>
   <span class="spacer"></span>
   <button id="nums">Numbers: On</button>
   <button id="clearAll">Clear all</button>
@@ -114,8 +115,8 @@
 const grid = document.getElementById('grid');
 const zoom = document.getElementById('zoom');
 const fileInput = document.getElementById('file');
-const LAYOUTS = { 2:[2,1], 4:[2,2], 6:[3,2], 9:[3,3], 12:[4,3], 15:[5,3] };
-const MAX = 15;
+const LAYOUTS = { 2:[2,1], 4:[2,2], 6:[3,2], 9:[3,3], 12:[4,3], 15:[5,3], 20:[5,4] };
+const MAX = 20;
 let images = new Array(MAX).fill(null);   // data URLs or web URLs
 let count = 6, selected = 0, showNums = true;
 
