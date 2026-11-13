@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Picture Wall</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #1f2326; font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif; overflow: hidden; }
+
+  /* Toolbar */
+  #bar {
+    position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 20;
+    display: flex; align-items: center; gap: 8px; padding: 0 12px;
+    background: #2d3236; color: #eee; transition: transform .25s;
+  }
+  body.hidebar #bar { transform: translateY(-100%); }
+  body.hidebar #hot { display: block; }
+  #hot { display: none; position: fixed; top: 0; left: 0; right: 0; height: 14px; z-index: 19; }
+  #bar .label { font-size: 15px; margin-right: 4px; opacity: .8; }
+  #bar button {
+    font-size: 16px; padding: 7px 14px; border: none; border-radius: 6px;
+    background: #454c52; color: #fff; cursor: pointer;
+  }
+  #bar button:hover { background: #5a636a; }
+  #bar button.on { background: #e8a33d; color: #1f2326; font-weight: bold; }
+  #bar .spacer { flex: 1; }
+
+  /* Grid */
+  #grid {
+    position: fixed; top: 52px; left: 0; right: 0; bottom: 0;
+    display: grid; gap: 6px; padding: 6px; transition: top .25s;
+  }
+  body.hidebar #grid { top: 0; }
+
+  .cell {
+    position: relative; background: #2b3034; border-radius: 6px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    outline: 3px solid transparent; outline-offset: -3px;
+  }
+  .cell.selected { outline-color: #e8a33d; }
+  .cell.dragover { outline-color: #6fc3ff; background: #33404a; }
+  .cell img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .cell .hint { color: #8a949b; font-size: 18px; text-align: center; line-height: 1.5; padding: 10px; pointer-events: none; }
+  .cell .hint b { color: #c9d1d6; font-size: 26px; display: block; }
+  .cell .num {
+    position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,.55); color: #fff;
+    font-size: 18px; font-weight: bold; padding: 2px 10px; border-radius: 4px; pointer-events: none;
+  }
+  .cell .x {
+    position: absolute; top: 6px; right: 6px; width: 34px; height: 34px; border-radius: 50%;
+    border: none; background: rgba(0,0,0,.6); color: #fff; font-size: 20px; cursor: pointer; display: none;
+  }
+  .cell.has:hover .x { display: block; }
+
+  /* Zoom view */
+  #zoom {
+    position: fixed; inset: 0; z-index: 30; background: #111; display: none;
+    align-items: center; justify-content: center; cursor: zoom-out;
+  }
+  #zoom.show { display: flex; }
+  #zoom img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+  #help {
+    position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.75); display: none;
+    align-items: center; justify-content: center;
+  }
+  #help.show { display: flex; }
+  #help div { background: #fff; color: #222; max-width: 640px; padding: 26px 30px; border-radius: 10px; font-size: 18px; line-height: 1.6; }
+  #help h2 { margin-bottom: 10px; }
+  #help li { margin-left: 22px; margin-bottom: 4px; }
+  #help button { margin-top: 14px; font-size: 17px; padding: 8px 18px; border: none; border-radius: 6px; background: #e8a33d; cursor: pointer; }
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+
+<div id="hot"></div>
+<div id="bar">
+  <span class="label">Boxes:</span>
+  <button data-n="2">2</button>
+  <button data-n="4">4</button>
+  <button data-n="6">6</button>
+  <button data-n="9">9</button>
+  <button data-n="12">12</button>
+  <span class="spacer"></span>
+  <button id="nums">Numbers: On</button>
+  <button id="clearAll">Clear all</button>
+  <button id="helpBtn">Help</button>
+  <button id="full">⛶ Full screen</button>
+</div>
+
+<div id="grid"></div>
+<div id="zoom"><img alt=""></div>
+<input type="file" id="file" accept="image/*">
+
+<div id="help"><div>
+  <h2>How to use</h2>
+  <ul>
+    <li><b>Copy from Google Images:</b> right-click a picture → <i>Copy image</i>. Click a box here, then press <b>Ctrl + V</b>.</li>
+    <li><b>Drag:</b> drag a picture from another tab straight onto a box.</li>
+    <li><b>From the computer:</b> double-click an empty box to choose a file.</li>
+    <li><b>Make one picture big:</b> double-click a box with a picture. Click again to go back.</li>
+    <li><b>Remove a picture:</b> point at it and click ✕ (or click the box and press Delete).</li>
+    <li><b>Full screen:</b> press ⛶ or <b>F11</b>. The top bar hides; move the mouse to the very top to show it.</li>
+    <li>Pictures stay even if you refresh the page (on this computer).</li>
+  </ul>
+  <button id="closeHelp">OK</button>
+</div></div>
+
+<script>
+const grid = document.getElementById('grid');
+const zoom = document.getElementById('zoom');
+const fileInput = document.getElementById('file');
+const LAYOUTS = { 2:[2,1], 4:[2,2], 6:[3,2], 9:[3,3], 12:[4,3] };
+const MAX = 12;
+let images = new Array(MAX).fill(null);   // data URLs or web URLs
+let count = 6, selected = 0, showNums = true;
+
+/* ---------- storage (IndexedDB, best effort) ---------- */
+let db = null;
+function openDB() {
+  return new Promise(res => {
+    try {
+      const r = indexedDB.open('picture-wall', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('s');
+      r.onsuccess = () => { db = r.result; res(); };
+      r.onerror = () => res();
+    } catch (e) { res(); }
+  });
+}
+function save() {
+  if (!db) return;
+  try { db.transaction('s','readwrite').objectStore('s').put({ images, count, showNums }, 'state'); } catch (e) {}
+}
+function load() {
+  return new Promise(res => {
+    if (!db) return res();
+    try {
+      const r = db.transaction('s').objectStore('s').get('state');
+      r.onsuccess = () => {
+        const s = r.result;
+        if (s) { images = s.images || images; count = s.count || count; showNums = s.showNums !== false; }
+        res();
+      };
+      r.onerror = () => res();
+    } catch (e) { res(); }
+  });
+}
+
+/* ---------- render ---------- */
+function render() {
+  const [cols, rows] = LAYOUTS[count];
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+  grid.innerHTML = '';
+  if (selected >= count) selected = 0;
+  for (let i = 0; i < count; i++) {
+    const c = document.createElement('div');
+    c.className = 'cell' + (images[i] ? ' has' : '') + (i === selected ? ' selected' : '');
+    c.dataset.i = i;
+    if (images[i]) {
+      const img = document.createElement('img');
+      img.src = images[i];
+      img.draggable = false;
+      c.appendChild(img);
+      const x = document.createElement('button');
+      x.className = 'x'; x.textContent = '✕'; x.title = 'Remove';
+      x.onclick = e => { e.stopPropagation(); setImage(i, null); };
+      c.appendChild(x);
+    } else {
+      c.innerHTML = `<div class="hint"><b>${i+1}</b>Click, then Ctrl + V<br>or drag a picture here</div>`;
+    }
+    if (showNums && images[i]) {
+      const n = document.createElement('div'); n.className = 'num'; n.textContent = i + 1; c.appendChild(n);
+    }
+    c.onclick = () => select(i);
+    c.ondblclick = () => images[i] ? openZoom(images[i]) : (selected = i, fileInput.click());
+    c.ondragover = e => { e.preventDefault(); c.classList.add('dragover'); };
+    c.ondragleave = () => c.classList.remove('dragover');
+    c.ondrop = e => { e.preventDefault(); c.classList.remove('dragover'); select(i); handleData(e.dataTransfer, i); };
+    grid.appendChild(c);
+  }
+  document.querySelectorAll('#bar button[data-n]').forEach(b => b.classList.toggle('on', +b.dataset.n === count));
+  document.getElementById('nums').textContent = 'Numbers: ' + (showNums ? 'On' : 'Off');
+}
+function select(i) {
+  selected = i;
+  document.querySelectorAll('.cell').forEach(c => c.classList.toggle('selected', +c.dataset.i === i));
+}
+function setImage(i, src) {
+  images[i] = src; save(); render();
+  // move to the next empty box so you can keep pasting
+  if (src) {
+    for (let k = 1; k <= count; k++) { const j = (i + k) % count; if (!images[j]) { select(j); break; } }
+  }
+}
+
+/* ---------- getting pictures in ---------- */
+function readFile(f, i) {
+  if (!f || !f.type.startsWith('image/')) return false;
+  const r = new FileReader();
+  r.onload = () => setImage(i, r.result);
+  r.readAsDataURL(f);
+  return true;
+}
+function handleData(dt, i) {
+  if (!dt) return;
+  // 1) real image files (Copy image / files from computer)
+  for (const f of (dt.files || [])) if (readFile(f, i)) return;
+  for (const it of (dt.items || [])) {
+    if (it.kind === 'file' && it.type.startsWith('image/')) { if (readFile(it.getAsFile(), i)) return; }
+  }
+  // 2) dragged image from a web page -> take the <img src>
+  const html = dt.getData && dt.getData('text/html');
+  if (html) {
+    const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (m) { setImage(i, m[1].replace(/&amp;/g, '&')); return; }
+  }
+  // 3) a plain link that looks like a picture
+  const txt = (dt.getData && (dt.getData('text/uri-list') || dt.getData('text/plain')) || '').trim();
+  if (/^(https?:|data:image)/i.test(txt)) setImage(i, txt.split('\n')[0]);
+}
+document.addEventListener('paste', e => { handleData(e.clipboardData, selected); e.preventDefault(); });
+fileInput.onchange = () => { readFile(fileInput.files[0], selected); fileInput.value = ''; };
+
+/* ---------- zoom ---------- */
+function openZoom(src) { zoom.querySelector('img').src = src; zoom.classList.add('show'); }
+zoom.onclick = () => zoom.classList.remove('show');
+
+/* ---------- toolbar ---------- */
+document.querySelectorAll('#bar button[data-n]').forEach(b => b.onclick = () => { count = +b.dataset.n; save(); render(); });
+document.getElementById('nums').onclick = () => { showNums = !showNums; save(); render(); };
+document.getElementById('clearAll').onclick = () => {
+  if (!images.some(Boolean)) return;
+  const btn = document.getElementById('clearAll');
+  if (btn.dataset.sure) { images = new Array(MAX).fill(null); selected = 0; save(); render(); delete btn.dataset.sure; btn.textContent = 'Clear all'; }
+  else { btn.dataset.sure = 1; btn.textContent = 'Sure? Click again'; setTimeout(() => { delete btn.dataset.sure; btn.textContent = 'Clear all'; }, 3000); }
+};
+document.getElementById('full').onclick = () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen();
+};
+function syncBar() { document.body.classList.toggle('hidebar', !!document.fullscreenElement || window.innerHeight >= screen.height - 2); }
+document.addEventListener('fullscreenchange', syncBar);
+window.addEventListener('resize', syncBar);
+// in full screen, show the bar when the mouse goes to the top edge
+document.getElementById('hot').onmouseenter = () => document.body.classList.remove('hidebar');
+document.getElementById('bar').onmouseleave = () => { if (document.fullscreenElement || window.innerHeight >= screen.height - 2) document.body.classList.add('hidebar'); };
+
+document.getElementById('helpBtn').onclick = () => document.getElementById('help').classList.add('show');
+document.getElementById('closeHelp').onclick = () => document.getElementById('help').classList.remove('show');
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') zoom.classList.remove('show');
+  if ((e.key === 'Delete' || e.key === 'Backspace') && images[selected] && !zoom.classList.contains('show')) setImage(selected, null);
+});
+
+openDB().then(load).then(() => { render(); syncBar(); });
+</script>
+</body>
+</html>
